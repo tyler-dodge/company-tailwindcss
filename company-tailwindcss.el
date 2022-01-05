@@ -1141,6 +1141,7 @@
     "overscroll-x-auto"
     "overscroll-x-contain"
     "overscroll-x-none"
+    "col"
     )
   "List of tailwind css keys that do not have any suffix")
 
@@ -1592,8 +1593,10 @@
   (interactive)
   (let ((css (company-tailwindcss--class-list)))
     (apply #'delete-region (-cons-to-list (company-tailwindcss--class-list-bounds)))
-    (insert (s-join " " (->> css (--filter (company-tailwindcss--class-p it))
-                             (--sort #'string>))))))
+    (insert (s-join " " (append (->> css (--filter (not (company-tailwindcss--class-p it)))
+                                     (-sort #'string>))
+                                (->> css (--filter (company-tailwindcss--class-p it))
+                                     (-sort #'string>)))))))
 (defun company-tailwindcss--class-list-bounds ()
   (save-mark-and-excursion
     (when (re-search-backward (rx (any ?\" ?')) nil t)
@@ -1603,12 +1606,11 @@
                    (1- (point)))))))
 
 (defun company-tailwindcss--class-p (class)
-  (-message class)
   (or
-   (--first (s-prefix-p class it) company-tailwindcss--keys-no-suffix)
-   (--first (s-prefix-p class it) company-tailwindcss--keys-with-color-suffix)
-   (--first (s-prefix-p class it) company-tailwindcss--keys-with-dimension-suffix)
-   (--first (s-prefix-p class it) company-tailwindcss--modifiers)))
+   (--first (s-prefix-p it class) company-tailwindcss--keys-no-suffix)
+   (--first (s-prefix-p (concat it "-") class) company-tailwindcss--keys-with-color-suffix)
+   (--first (s-prefix-p (concat it "-") class) company-tailwindcss--keys-with-dimension-suffix)
+   (--first (s-prefix-p it class) company-tailwindcss--modifiers)))
 
 (defun company-tailwindcss--class-list ()
   (interactive)
@@ -1616,13 +1618,11 @@
     (-let (((start . end) (company-tailwindcss--class-list-bounds)))
       (when start
         (goto-char start)
-        (forward-char 1)
-        (cdr (cl-loop
-              with last = nil
+        (cl-loop
+              with last = start
               while (re-search-forward (rx (any ?\" ?' whitespace)) (1+ end) t)
-              collect (prog1 (when last
-                               (buffer-substring-no-properties last (1- (point))))
-                        (setq last (point)))))))))
+              collect (prog1 (buffer-substring-no-properties last (1- (point)))
+                        (setq last (point))))))))
 
 ;;;###autoload
 (defun company-tailwindcss (command &optional arg &rest ignored)
