@@ -1152,6 +1152,10 @@
                       (s-prefix-p it prefix))))
    nil))
 
+(defun company-tailwindcss--in-string-p ()
+  (or (get-text-property (point) 'tag-attr)
+      (eq (get-text-property (point) 'part-token) 'string)))
+
 ;;;###autoload
 (defun company-tailwindcss (command &optional arg &rest ignored)
   "`company-mode' completion backend for tailwind css classes.
@@ -1161,16 +1165,14 @@ Completion only works inside "
     (interactive (company-begin-backend 'company-tailwindcss))
     (prefix
      (when (or (not company-tailwindcss-complete-only-in-attributes)
-               (get-text-property (point) 'tag-attr))
+               (company-tailwindcss--in-string-p)
+               )
        (or (thing-at-point 'symbol) "")))
     (candidates
      (company-tailwindcss--completions-for-prefix
-      (or (when (or
-                 (not company-tailwindcss-complete-only-in-attributes)
-                 (get-text-property 0 'tag-attr arg))
-            (let ((symbol (thing-at-point 'symbol-at-point t)))
-              (-some--> arg (and (not (s-blank-p it)) it)
-                        (car (reverse (s-split ":" it))))))
+      (or (let ((symbol (thing-at-point 'symbol-at-point t)))
+            (-some--> arg (and (not (s-blank-p it)) it)
+                      (car (reverse (s-split ":" it)))))
           "")))
     (post-completion nil)
     (sorted t)
