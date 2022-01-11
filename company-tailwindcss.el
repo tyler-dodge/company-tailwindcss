@@ -1573,7 +1573,9 @@
         (--filter (s-prefix-p prefix it)))
    (->> company-tailwindcss--keys-with-dimension-suffix
         (--map (-as-> it prefix
-                      (--map (concat prefix it) company-tailwindcss--dimensions)))
+                      (->> company-tailwindcss--dimensions
+                           (--map (concat prefix it))
+                           )))
         (-flatten-n 1)
         (--filter (or (s-prefix-p prefix it)
                       (s-prefix-p it prefix))))
@@ -1591,12 +1593,37 @@
 
 (defun company-tailwindcss-sort-class-list ()
   (interactive)
-  (let ((css (company-tailwindcss--class-list)))
+  (let* ((css (company-tailwindcss--class-list))
+        (non-tailwind (->> css (--filter (not (company-tailwindcss--class-p it)))
+                                     (-sort #'string>))))
     (apply #'delete-region (-cons-to-list (company-tailwindcss--class-list-bounds)))
-    (insert (s-join " " (append (->> css (--filter (not (company-tailwindcss--class-p it)))
-                                     (-sort #'string>))
-                                (->> css (--filter (company-tailwindcss--class-p it))
-                                     (-sort #'string>)))))))
+    (insert (s-chop-suffix "\n" (s-join " " (append 
+                                             non-tailwind
+                                             (when non-tailwind (list "\n"))
+                                             (->> css (--filter (company-tailwindcss--class-p it))
+                                                  (-sort #'string>)
+                                                  (--group-by (s-join ":" (cdr (reverse (s-split ":" it)))))
+                                                  (reverse)
+                                                  (--sort (string> (car it) (car other)))
+                                                  (--map (concat (s-join " " (cdr it)) "\n"))
+                                                  )))))
+    (apply #'indent-region (-cons-to-list (company-tailwindcss--class-list-bounds)))))
+
+(defun company-tailwindcss-indent-class-list ()
+  (interactive)
+  (-let [(start . end) (company-tailwindcss--class-list-bounds)]
+    (cl-loop
+     with counter = 0
+     with last = start
+     while (re-search-forward (rx whitespace) end t)
+     do (progn
+          (when (eq (% counter 4) 0) (insert "\n"))
+          (indent-according-to-mode)
+          (setq last (point))
+          (setq counter (1+ counter)))
+      )
+    )
+  )
 (defun company-tailwindcss--class-list-bounds ()
   (save-mark-and-excursion
     (when (re-search-backward (rx (any ?\" ?')) nil t)
@@ -1618,11 +1645,22 @@
     (-let (((start . end) (company-tailwindcss--class-list-bounds)))
       (when start
         (goto-char start)
-        (cl-loop
-              with last = start
-              while (re-search-forward (rx (any ?\" ?' whitespace)) (1+ end) t)
-              collect (prog1 (buffer-substring-no-properties last (1- (point)))
-                        (setq last (point))))))))
+        (--filter (not (s-blank-p it))
+                  (cl-loop
+                   with last = start
+                   while (re-search-forward (rx (any ?\" ?' whitespace)) (1+ end) t)
+                   collect (prog1 (buffer-substring-no-properties last (1- (point)))
+                             (setq last (point)))))))))
+
+(defun company-tailwindcss--subclass-at-point ()
+  (let* ((pt (point))
+         (start (save-mark-and-excursion (re-search-backward (rx (any ?\" ?\' whitespace ?:)) nil t)
+                                         (point)))
+         (end (save-mark-and-excursion
+                (goto-char (1+ start))
+                (if (> (point) pt) pt
+                  (or (re-search-forward (rx (any ?\" ?\' whitespace ?:)) pt t) (goto-char pt))) pt)))
+    (s-trim (buffer-substring start end))))
 
 ;;;###autoload
 (defun company-tailwindcss (command &optional arg &rest ignored)
@@ -1635,14 +1673,27 @@ Completion only works inside "
      (when (or (not company-tailwindcss-complete-only-in-attributes)
                (company-tailwindcss--in-string-p)
                )
-       (or (thing-at-point 'symbol) "")))
+       
+       (prog1
+           (cons
+            (or (company-tailwindcss--subclass-at-point) "")
+            t))))
     (candidates
-     (company-tailwindcss--completions-for-prefix
-      (or (let ((symbol (thing-at-point 'symbol-at-point t)))
-            (-some--> arg (and (not (s-blank-p it)) it)
-                      (car (reverse (s-split ":" it)))))
-          "")))
-    (post-completion nil)
+     (let* ((split-query (-some--> arg (and (not (s-blank-p it)) it)
+                                    (reverse (s-split ":" it))))
+            (query (s-chop-suffix ":" (or (-some--> split-query (car it)) ""))))
+       (->> query
+        (company-tailwindcss--completions-for-prefix)
+        (--map (if (> (length split-query) 1) (concat ":" it) it)))))
+    (post-completion
+     (if (not (memq (char-before (point)) '(?: ?\ )))
+         (progn
+           (while (not (memq (char-after (point)) '(?\  ?\n ?\' ?\")))
+             (delete-char 1)))
+       (while (not (memq (char-after (point)) '(?: ?\ ?\n ?\' ?\")))
+         (delete-char 1))
+       (when (eq (char-after (point)) ?:)
+         (delete-char 1))))
     (sorted t)
     (no-cache nil)))
 
