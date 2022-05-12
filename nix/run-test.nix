@@ -2,11 +2,12 @@
 let
   pkgs = import <nixpkgs> {};
   versioned_emacs = emacsWithPackages (epkgs: with epkgs; [
-  counsel
-  dash
-  ht
-  s
-  ert-runner
+    company
+    counsel
+    dash
+    ht
+    s
+    ert-runner
   el-mock
   ]);
 in derivation rec {
