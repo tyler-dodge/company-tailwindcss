@@ -7,7 +7,7 @@ function buildPhase() {
     cp -r $test_target test
     chmod -R u+w test 
     ${emacs}/bin/emacs -q --version
-    yes yes | ${emacs}/bin/emacs -q -batch -l $counsel_edit_mode -l ert-runner
+    yes yes | ${emacs}/bin/emacs -q -batch -l $company_tailwindcss -l ert-runner
     mkdir $out
 }
 

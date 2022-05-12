@@ -11,7 +11,7 @@ let
   el-mock
   ]);
 in derivation rec {
-  name = "counsel-edit-mode";
+  name = "company-tailwindcss";
   baseInputs = [];
   builder = "${pkgs.bash}/bin/bash";
   args = [ ./builder.sh ];
@@ -20,7 +20,7 @@ in derivation rec {
     gnugrep
     versioned_emacs coreutils];
   emacs = versioned_emacs;
-  counsel_edit_mode = ../company-tailwindcss.el;
+  company_tailwindcss = ../company-tailwindcss.el;
   test_target = ../test;
   system = builtins.currentSystem;
 }
