@@ -29,6 +29,9 @@
 (defcustom company-tailwindcss-complete-only-in-attributes t
   "When t, Complete only in css attribute tags.")
 
+(defcustom company-tailwindcss-sort-post-completion t
+  "When t, Sort the entire class list whenever post-completion is run.")
+
 (defvar company-tailwindcss--keys-with-dimension-suffix
   '(
     "basis"
@@ -55,8 +58,8 @@
     "right"
     "left"
     "bottom"
-    "pt" "pr" "pb" "py" "px" "p"
-    "mt" "mr" "mb" "my" "mx" "m"
+    "pt" "pl" "pr" "pb" "py" "px" "p"
+    "mt" "ml" "mr" "mb" "my" "mx" "m"
     "space-x"
     "space-y"
     "w" "h" "max-h" "indent")
@@ -1200,6 +1203,224 @@
     )
   "List of tailwind css keys that have a color suffix")
 
+(defvar company-tailwindcss--dedupe-prefixes
+  `(
+    "snap-" "basis-" "select-" "will-change-"
+    ("flex-row" "flex-col")
+    ("flex-wrap" "flex-nowrap")
+    ("flex-1" "flex-auto" "flex-initial" "flex-none")
+    ("grow" "shrink")
+    "order-"
+    "grid-cols"
+    "col-start-"
+    "col-end-"
+    ("col-span" "col-auto")
+    "grid-rows"
+    "row-start-"
+    "row-end-"
+    ("row-span" "row-auto")
+    "grid-flow"
+    "auto-cols"
+    "auto-rows"
+    "gap-x"
+    "gap-y"
+    "gap-"
+    "justify-items"
+    "justify-self"
+    "justify-"
+    "content-"
+    "items-"
+    "self-"
+    "place-content"
+    "place-items"
+    "place-self"
+    "pt-" "pr-" "pl-" "pb-" "px-" "py-"
+    "mt-" "mr-" "ml-" "mb-" "mx-" "my-"
+    "p-" "m-"
+    "space-x"
+    "space-y"
+    "w-"
+    "h-"
+    "min-w-"
+    "min-h-"
+    "max-w-"
+    "max-h-"
+    "font-"
+    ("antialiased" "subpixel-antialiased")
+    ("italic" "not-italic")
+    "font-"
+    "text-"
+    "tracking-"
+    "leading-"
+    ("list-inside" "list-outside")
+    "list-"
+    ("normal-nums" "ordinal" "slashed-zero" "lining-nums" "oldstyle-nums" "proportional-nums" "tabular-nums" "diagonal-fractions" "stacked-fractions")
+    ,(--map (concat "text-" it) company-tailwindcss--color-categories)
+    "text-"
+    ,(--map (concat "decoration-" it) company-tailwindcss--color-categories)
+    ("decoration-solid" "decoration-double" "decoration-dotted" "decoration-dashed" "decoration-wavy")
+    ("decoration-")
+    "underline-offset-"
+    ("underline" "overline" "line-through" "no-underline")
+    ("uppercase" "lowercase" "capitalize" "normal-case")
+    ("truncate" "text-ellipsis" "text-clip")
+    "indent-"
+    "align-"
+    "whitespace-"
+    "break-"
+    "content-none"
+    ("bg-fixed" "bg-local" "bg-scroll")
+    "bg-clip-"
+    ,(--map (concat "bg-" it) company-tailwindcss--color-categories)
+    "bg-origin-"
+    ("bg-bottom"
+     "bg-center"
+     "bg-left"
+     "bg-left-bottom"
+     "bg-left-top"
+     "bg-right"
+     "bg-right-bottom"
+     "bg-right-top"
+     "bg-top")
+    ("bg-repeat" "bg-no-repeat")
+    ("bg-auto" "bg-cover" "bg-contain")
+    ("bg-none" "bg-gradient")
+    "from-"
+    "to-"
+    "via-"
+    "rounded-"
+    "border-x-"
+    "border-y-"
+    "border-l-"
+    "border-r-"
+    "border-b-"
+    "border-t-"
+    ,(--map (concat "border-x-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "border-y-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "border-l-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "border-r-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "border-b-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "border-t-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "border-" it) company-tailwindcss--color-categories)
+    ("border-solid"
+     "border-dashed"
+     "border-dotted"
+     "border-double"
+     "border-hidden"
+     "border-none")
+    "border"
+    "divide-x"
+    "divide-y"
+    ,(--map (concat "divide-" it) company-tailwindcss--color-categories)
+    ("divide-solid"
+     "divide-dashed"
+     "divide-dotted"
+     "divide-double"
+     "divide-hidden"
+     "divide-none")
+    ,(--map (concat "outline-" it) company-tailwindcss--color-categories)
+    ("outline-solid"
+     "outline-dashed"
+     "outline-dotted"
+     "outline-double"
+     "outline-hidden"
+     "outline-none")
+    "outline-offset"
+    "outline-"
+    ,(--map (concat "ring-" it) company-tailwindcss--color-categories)
+    ,(--map (concat "ring-offset-" it) company-tailwindcss--color-categories)
+    "ring-offset"
+    "ring"
+    ,(--map (concat "shadow-" it) company-tailwindcss--color-categories)
+    "shadow"
+    "opacity"
+    "mix-blend-"
+    "bg-blend-"
+    "blur"
+    "brightness"
+    "contrast"
+    "drop-shadow"
+    "grayscale"
+    "hue-rotate"
+    "invert"
+    "saturate"
+    "sepia"
+    "backdrop-blur"
+    "backdrop-brightness"
+    "backdrop-contrast"
+    "backdrop-grayscale"
+    "backdrop-hue-rotate"
+    "backdrop-invert"
+    "backdrop-opacity"
+    "backdrop-saturate"
+    "backdrop-sepia"
+    ("border-collapse" "border-separate")
+    ("table-auto" "table-fixed")
+    )
+  "Prefixes used to dedupe tailwind classes")
+
+(defvar company-tailwindcss-prefix-sort-weight
+  '(
+    "p-"
+    "m-"
+    "pr-"
+    "pl-"
+    "pb-"
+    "pt-"
+    "mr-"
+    "ml-"
+    "mb-"
+    "mt-")
+  "Determines the sorted weight for a given prefix. Anything not matched defaults to string comparison sorting.")
+
+(defun company-tailwindcss--dedupe-prefix-for-class (full-class)
+  (-let [(class . modifiers) (reverse (s-split ":" full-class))]
+    (-->
+     (cl-loop for prefix in company-tailwindcss--dedupe-prefixes
+              until
+              (if (listp prefix)
+                  (--find (s-prefix-p it class) prefix)
+                (s-prefix-p prefix class)) 
+              finally return prefix
+              )
+     (s-join ":"
+             (reverse
+              (cons
+               (if (listp it) (car it) it)
+               modifiers))))))
+
+
+(defvar company-tailwindcss--color-categories
+  '(
+    "inherit"
+    "current"
+    "transparent"
+    "black"
+    "white"
+    "amber"
+    "blue"
+    "cyan"
+    "emerald"
+    "fuchsia"
+    "gray"
+    "green"
+    "indigo"
+    "lime"
+    "neutral"
+    "orange"
+    "pink"
+    "purple"
+    "red"
+    "rose"
+    "sky"
+    "slate"
+    "stone"
+    "teal"
+    "violet"
+    "yellow"
+    "zinc"
+    )
+  "List of tailwind color suffixes")
 (defvar company-tailwindcss--colors
   '(
     "inherit"
@@ -1591,45 +1812,74 @@
   (or (get-text-property (point) 'tag-attr)
       (eq (get-text-property (point) 'part-token) 'string)))
 
-(defun company-tailwindcss-sort-class-list ()
-  (interactive)
-  (let* ((css (company-tailwindcss--class-list))
-        (non-tailwind (->> css (--filter (not (company-tailwindcss--class-p it)))
-                                     (-sort #'string>))))
-    (apply #'delete-region (-cons-to-list (company-tailwindcss--class-list-bounds)))
-    (insert (s-chop-suffix "\n" (s-join " " (append 
-                                             non-tailwind
-                                             (when non-tailwind (list "\n"))
-                                             (->> css (--filter (company-tailwindcss--class-p it))
-                                                  (-sort #'string>)
-                                                  (--group-by (s-join ":" (cdr (reverse (s-split ":" it)))))
-                                                  (reverse)
-                                                  (--sort (string> (car it) (car other)))
-                                                  (--map (concat (s-join " " (cdr it)) "\n"))
-                                                  )))))
-    (apply #'indent-region (-cons-to-list (company-tailwindcss--class-list-bounds)))))
+(defun company-tailwindcss--sort (lhs rhs)
+  (-let* (
+          (lhs-prefix (car (reverse (s-split ":" (company-tailwindcss--dedupe-prefix-for-class lhs)))))
+          (rhs-prefix (car (reverse (s-split ":" (company-tailwindcss--dedupe-prefix-for-class rhs)))))
+          (size (length company-tailwindcss-prefix-sort-weight))
+          (lhs-weight (-some--> (--find-index (string= lhs-prefix it) company-tailwindcss-prefix-sort-weight)
+                        (+ (- size it) 10)))
+          (rhs-weight (-some--> (--find-index (string= rhs-prefix it) company-tailwindcss-prefix-sort-weight)
+                        (+ (- size it) 10))))
+    (if (or lhs-weight rhs-weight)
+        (> (or lhs-weight 0) (or rhs-weight 0))
+      (string> lhs rhs))))
 
-(defun company-tailwindcss-indent-class-list ()
+(defun company-tailwindcss-sort-class-list (&optional target-class)
   (interactive)
-  (-let [(start . end) (company-tailwindcss--class-list-bounds)]
-    (cl-loop
-     with counter = 0
-     with last = start
-     while (re-search-forward (rx whitespace) end t)
-     do (progn
-          (when (eq (% counter 4) 0) (insert "\n"))
-          (indent-according-to-mode)
-          (setq last (point))
-          (setq counter (1+ counter)))
-      )
+  (save-mark-and-excursion
+    (let* ((css (company-tailwindcss-dedupe-class-list target-class))
+           (non-tailwind (->> css (--filter (not (company-tailwindcss--class-p it)))
+                              (-non-nil)
+                              (-sort #'string>))))
+      (apply #'delete-region (-cons-to-list (company-tailwindcss--class-list-bounds)))
+      (funcall indent-line-function)
+      (-let ((indent (current-column)))
+        (insert (s-chop-suffix "\n" (s-join "" (append 
+                                                non-tailwind
+                                                (when non-tailwind (list "\n"))
+                                                (list
+                                                 (funcall (if non-tailwind #'identity #'s-trim)
+                                                          (s-join ""
+                                                                  (->> css (--filter (company-tailwindcss--class-p it))
+                                                                       (-sort #'company-tailwindcss--sort)
+                                                                       (-uniq)
+                                                                       (--group-by (s-join ":" (cdr (reverse (s-split ":" it)))))
+                                                                       (-message)
+                                                                       (--sort (company-tailwindcss--sort (car it) (car other)))
+                                                                       (--map (concat (s-repeat indent " ") (s-join " " (cdr it)) "\n"))
+                                                                       ))))))))
+        (apply #'indent-region (-cons-to-list (company-tailwindcss--class-list-bounds))))
+      (company-tailwindcss--fix-multiline-js-string))))
+
+(defun company-tailwindcss-dedupe-class-list (&optional target-class)
+  (interactive)
+  (-let [used-classes (ht)]
+    (-some--> target-class
+        (company-tailwindcss--dedupe-prefix-for-class it)
+      (ht-set used-classes it t))
+    (cons target-class
+          (cl-loop for class in (company-tailwindcss--class-list)
+                   unless (let* ((prefix (or
+                                          (company-tailwindcss--dedupe-prefix-for-class class)
+                                          class)))
+                            (prog1 (ht-get used-classes prefix nil)
+                              (ht-set used-classes prefix t)))
+                   collect class))))
+
+(defun company-tailwindcss--class-without-parameters (class)
+  (-let (((class-name . modifiers) (reverse (split ":" class))))
+
     )
+
   )
+
 (defun company-tailwindcss--class-list-bounds ()
   (save-mark-and-excursion
-    (when (re-search-backward (rx (any ?\" ?')) nil t)
+    (when (re-search-backward (rx (any ?\" ?' ?`)) nil t)
       (forward-char 1)
       (cons (point)
-            (progn (re-search-forward (rx (any ?\" ?')))
+            (progn (re-search-forward (rx (any ?\" ?' ?`)))
                    (1- (point)))))))
 
 (defun company-tailwindcss--class-p (class)
@@ -1648,19 +1898,30 @@
         (--filter (not (s-blank-p it))
                   (cl-loop
                    with last = start
-                   while (re-search-forward (rx (any ?\" ?' whitespace)) (1+ end) t)
+                   while (re-search-forward (rx (any ?\" ?' ?` whitespace)) (1+ end) t)
                    collect (prog1 (buffer-substring-no-properties last (1- (point)))
                              (setq last (point)))))))))
 
 (defun company-tailwindcss--subclass-at-point ()
   (let* ((pt (point))
-         (start (save-mark-and-excursion (re-search-backward (rx (any ?\" ?\' whitespace ?:)) nil t)
-                                         (point)))
+         (start (save-mark-and-excursion (re-search-backward (rx (any ?\" ?\' ?` whitespace ?:)) nil t)
+                                         (1+ (point))))
          (end (save-mark-and-excursion
                 (goto-char (1+ start))
                 (if (> (point) pt) pt
-                  (or (re-search-forward (rx (any ?\" ?\' whitespace ?:)) pt t) (goto-char pt))) pt)))
+                  (or (re-search-forward (rx (any ?\" ?\' ?` whitespace ?:)) pt t) (goto-char pt))) pt)))
     (s-trim (buffer-substring start end))))
+
+(defun company-tailwindcss--class-at-point ()
+  (let* ((pt (point))
+         (quote-chars (->> '(?\" ?\') (-map 'char-to-string)))
+         (start (save-mark-and-excursion (re-search-backward (rx (any ?\" ?` ?\' whitespace)) nil t)
+                                         (1+ (point))))
+         (end (save-mark-and-excursion
+                (goto-char (1+ start))
+                (re-search-forward (rx (any ?\" ?\' ?` whitespace)) nil t)
+                (1- (point)))))
+    (s-trim (s-chop-suffixes quote-chars (s-chop-prefixes quote-chars (buffer-substring start end))))))
 
 ;;;###autoload
 (defun company-tailwindcss (command &optional arg &rest ignored)
@@ -1680,22 +1941,54 @@ Completion only works inside "
             t))))
     (candidates
      (let* ((split-query (-some--> arg (and (not (s-blank-p it)) it)
-                                    (reverse (s-split ":" it))))
+                                   (reverse (s-split ":" it))))
+            (filter-list (--doto (ht)
+                           (cl-loop for item in (s-split ":" (company-tailwindcss--class-at-point))
+                                    do (ht-set it (concat item ":") t))))
             (query (s-chop-suffix ":" (or (-some--> split-query (car it)) ""))))
        (->> query
-        (company-tailwindcss--completions-for-prefix)
-        (--map (if (> (length split-query) 1) (concat ":" it) it)))))
+            (company-tailwindcss--completions-for-prefix)
+            (--filter (not (ht-get filter-list it)))
+            (--map (if (> (length split-query) 1) (concat ":" it) it)))))
     (post-completion
      (if (not (memq (char-before (point)) '(?: ?\ )))
          (progn
-           (while (not (memq (char-after (point)) '(?\  ?\n ?\' ?\")))
+           (while (not (memq (char-after (point)) '(?\  ?\n ?\' ?` ?\")))
              (delete-char 1)))
-       (while (not (memq (char-after (point)) '(?: ?\ ?\n ?\' ?\")))
+       (while (not (memq (char-after (point)) '(?: ?\ ?\n ?\' ?` ?\")))
          (delete-char 1))
        (when (eq (char-after (point)) ?:)
-         (delete-char 1))))
+         (delete-char 1)))
+     (when company-tailwindcss-sort-post-completion
+       (when (eq (char-before (point)) ?:)
+         (progn (re-search-forward (rx (or whitespace ?' ?` ?\")))
+                (forward-char -1)))
+       (-let [class (company-tailwindcss--class-at-point)]
+         (company-tailwindcss-sort-class-list class)
+         (forward-char -1)
+         (re-search-forward (rx (not (any letter ?:)) (literal class) (not letter)))
+         (forward-char -1))
+       (unless (eq (char-before (point)) ?:)
+         (insert " "))
+
+       ;; deferring to avoid company having issues from recursing 
+       (run-at-time nil nil (lambda () (company-begin-backend 'company-tailwindcss)))
+       ))
     (sorted t)
     (no-cache nil)))
+
+(defun company-tailwindcss--fix-multiline-js-string ()
+  (interactive)
+  (save-mark-and-excursion
+    (when (eq (get-text-property (point) 'font-lock-face) 'web-mode-javascript-string-face)
+      (-let [(start . end) (company-tailwindcss--class-list-bounds)]
+        (goto-char (1- start))
+        (unless (eq (char-after (point)) ?`)
+          (delete-char 1)
+          (insert ?`)
+          (goto-char end)
+          (delete-char 1)
+          (insert ?`))))))
 
 
 (provide 'company-tailwindcss)
