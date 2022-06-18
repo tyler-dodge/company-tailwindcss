@@ -2,7 +2,7 @@
 ;; Author: Tyler Dodge
 ;; Version: 0.6
 ;; Keywords: convenience, matching
-;; Package-Requires: ((emacs "26.1") (company "0.8.0"))
+;; Package-Requires: ((emacs "26.1") (company "0.8.0") (dash "2.19.1"))
 ;; URL: https://github.com/tyler-dodge/company-tailwindcss
 ;; Git-Repository: git://github.com/tyler-dodge/company-tailwindcss.git
 ;; This program is free software; you can redistribute it and/or modify
