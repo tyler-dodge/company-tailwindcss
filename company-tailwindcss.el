@@ -25,6 +25,8 @@
 ;;; Code:
 
 (require 'company)
+(require 'dash)
+(require 'ht)
 
 (defcustom company-tailwindcss-complete-only-in-attributes t
   "When t, Complete only in css attribute tags.")
@@ -1148,6 +1150,38 @@
     )
   "List of tailwind css keys that do not have any suffix")
 
+(defvar company-tailwindcss--color-categories
+  '(
+    "inherit"
+    "current"
+    "transparent"
+    "black"
+    "white"
+    "amber"
+    "blue"
+    "cyan"
+    "emerald"
+    "fuchsia"
+    "gray"
+    "green"
+    "indigo"
+    "lime"
+    "neutral"
+    "orange"
+    "pink"
+    "purple"
+    "red"
+    "rose"
+    "sky"
+    "slate"
+    "stone"
+    "teal"
+    "violet"
+    "yellow"
+    "zinc"
+    )
+  "List of tailwind color suffixes")
+
 (defvar company-tailwindcss--keys-with-color-suffix
   '("decoration"
     "fill"
@@ -1390,37 +1424,6 @@
                modifiers))))))
 
 
-(defvar company-tailwindcss--color-categories
-  '(
-    "inherit"
-    "current"
-    "transparent"
-    "black"
-    "white"
-    "amber"
-    "blue"
-    "cyan"
-    "emerald"
-    "fuchsia"
-    "gray"
-    "green"
-    "indigo"
-    "lime"
-    "neutral"
-    "orange"
-    "pink"
-    "purple"
-    "red"
-    "rose"
-    "sky"
-    "slate"
-    "stone"
-    "teal"
-    "violet"
-    "yellow"
-    "zinc"
-    )
-  "List of tailwind color suffixes")
 (defvar company-tailwindcss--colors
   '(
     "inherit"
@@ -1951,29 +1954,32 @@ Completion only works inside "
             (--filter (not (ht-get filter-list it)))
             (--map (if (> (length split-query) 1) (concat ":" it) it)))))
     (post-completion
-     (if (not (memq (char-before (point)) '(?: ?\ )))
-         (progn
-           (while (not (memq (char-after (point)) '(?\  ?\n ?\' ?` ?\")))
+     (atomic-change-group
+       (let ((inhibit-redisplay t))
+         (if (not (memq (char-before (point)) '(?: ?\ )))
+             (progn
+               (while (not (memq (char-after (point)) '(?\  ?\n ?\' ?` ?\")))
+                 (delete-char 1)))
+           (while (not (memq (char-after (point)) '(?: ?\ ?\n ?\' ?` ?\")))
+             (delete-char 1))
+           (when (eq (char-after (point)) ?:)
              (delete-char 1)))
-       (while (not (memq (char-after (point)) '(?: ?\ ?\n ?\' ?` ?\")))
-         (delete-char 1))
-       (when (eq (char-after (point)) ?:)
-         (delete-char 1)))
-     (when company-tailwindcss-sort-post-completion
-       (when (eq (char-before (point)) ?:)
-         (progn (re-search-forward (rx (or whitespace ?' ?` ?\")))
-                (forward-char -1)))
-       (-let [class (company-tailwindcss--class-at-point)]
-         (company-tailwindcss-sort-class-list class)
-         (forward-char -1)
-         (re-search-forward (rx (not (any letter ?:)) (literal class) (not letter)))
-         (forward-char -1))
-       (unless (eq (char-before (point)) ?:)
-         (insert " "))
+         (when company-tailwindcss-sort-post-completion
+           (when (eq (char-before (point)) ?:)
+             (progn (re-search-forward (rx (or whitespace ?' ?` ?\")))
+                    (forward-char -1)))
+           (-let [class (company-tailwindcss--class-at-point)]
+             (company-tailwindcss-sort-class-list class)
+             (forward-char -1)
+             (re-search-forward (rx (not (any letter ?:)) (literal class) (not letter)))
+             (forward-char -1))
+           (unless (eq (char-before (point)) ?:)
+             (insert " "))
 
-       ;; deferring to avoid company having issues from recursing 
-       (run-at-time nil nil (lambda () (company-begin-backend 'company-tailwindcss)))
-       ))
+           ;; deferring to avoid company having issues from recursing 
+           (run-at-time nil nil (lambda ()
+                                  (company-abort)
+                                  (company-begin-backend 'company-tailwindcss)))))))
     (sorted t)
     (no-cache nil)))
 
