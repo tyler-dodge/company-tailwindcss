@@ -1979,7 +1979,8 @@ Completion only works inside "
            ;; deferring to avoid company having issues from recursing 
            (run-at-time nil nil (lambda ()
                                   (company-abort)
-                                  (company-begin-backend 'company-tailwindcss)))))))
+                                  (company-begin-backend 'company-tailwindcss)
+                                  (company-install-map)))))))
     (sorted t)
     (no-cache nil)))
 
