@@ -29,10 +29,12 @@
 (require 'ht)
 
 (defcustom company-tailwindcss-complete-only-in-attributes t
-  "When t, Complete only in css attribute tags.")
+  "When t, Complete only in css attribute tags.
+Should be set to nil if the mode does not use similar font-lock faces as `web-mode'")
 
 (defcustom company-tailwindcss-sort-post-completion t
-  "When t, Sort the entire class list whenever post-completion is run.")
+  "When t, Sort the entire class list whenever post-completion is run.
+")
 
 (defvar company-tailwindcss--keys-with-dimension-suffix
   '(
@@ -1410,13 +1412,14 @@
 (defun company-tailwindcss--dedupe-prefix-for-class (full-class)
   (-let [(class . modifiers) (reverse (s-split ":" full-class))]
     (-->
-     (cl-loop for prefix in company-tailwindcss--dedupe-prefixes
-              until
-              (if (listp prefix)
-                  (--find (s-prefix-p it class) prefix)
-                (s-prefix-p prefix class)) 
-              finally return prefix
-              )
+    (if (-contains-p company-tailwindcss--keys-no-suffix class)
+        class
+      (cl-loop for prefix in company-tailwindcss--dedupe-prefixes
+               until
+               (if (listp prefix)
+                   (--find (s-prefix-p it class) prefix)
+                 (s-prefix-p prefix class)) 
+               finally return prefix))
      (s-join ":"
              (reverse
               (cons
@@ -1828,6 +1831,7 @@
         (> (or lhs-weight 0) (or rhs-weight 0))
       (string> lhs rhs))))
 
+;;;###autoload
 (defun company-tailwindcss-sort-class-list (&optional target-class)
   (interactive)
   (save-mark-and-excursion
@@ -1855,6 +1859,7 @@
         (apply #'indent-region (-cons-to-list (company-tailwindcss--class-list-bounds))))
       (company-tailwindcss--fix-multiline-js-string))))
 
+;;;###autoload
 (defun company-tailwindcss-dedupe-class-list (&optional target-class)
   (interactive)
   (-let [used-classes (ht)]
@@ -1871,11 +1876,7 @@
                    collect class))))
 
 (defun company-tailwindcss--class-without-parameters (class)
-  (-let (((class-name . modifiers) (reverse (split ":" class))))
-
-    )
-
-  )
+  (-let (((class-name . modifiers) (reverse (split ":" class))))))
 
 (defun company-tailwindcss--class-list-bounds ()
   (save-mark-and-excursion
@@ -1929,7 +1930,11 @@
 ;;;###autoload
 (defun company-tailwindcss (command &optional arg &rest ignored)
   "`company-mode' completion backend for tailwind css classes.
-Completion only works inside "
+Completion only works inside css attributes and js strings as determined by font-lock.
+set `company-tailwindcss-complete-only-in-attributes' `nil' to make it able to complete anywhere. 
+
+`company-tailwindcss-sort-post-completion' set to `t' keeps the class list consistent.
+ "
   (interactive (list 'interactive))
   (cl-case command
     (interactive (company-begin-backend 'company-tailwindcss))
@@ -1984,18 +1989,35 @@ Completion only works inside "
     (sorted t)
     (no-cache nil)))
 
-(defun company-tailwindcss--fix-multiline-js-string ()
+(defun company-tailwindcss-convert-to-multiline-js-string-at-point ()
+  "Convert a string "
   (interactive)
   (save-mark-and-excursion
-    (when (eq (get-text-property (point) 'font-lock-face) 'web-mode-javascript-string-face)
-      (-let [(start . end) (company-tailwindcss--class-list-bounds)]
-        (goto-char (1- start))
-        (unless (eq (char-after (point)) ?`)
-          (delete-char 1)
-          (insert ?`)
-          (goto-char end)
-          (delete-char 1)
-          (insert ?`))))))
+    (pcase (get-text-property (point) 'font-lock-face)
+      ((pred (eq 'web-mode-javascript-string-face))
+       (-let [(start . end) (company-tailwindcss--class-list-bounds)]
+         (goto-char (1- start))
+         (unless (eq (char-after (point)) ?`)
+           (delete-char 1)
+           (insert ?`)
+           (goto-char end)
+           (delete-char 1)
+           (insert ?`))))
+      ((pred (eq 'web-mode-html-attr-value-face))
+       (-let [(start . end) (company-tailwindcss--class-list-bounds)]
+         (-message "TAS")
+         (goto-char (1- start))
+         (unless (eq (char-after (point)) ?`)
+           (delete-char 1)
+           (insert "{`")
+           (goto-char (1+ end))
+           (delete-char 1)
+           (insert "`}"))))
+      (unmatched (message "No JS string found at point. Font Lock Type: %s" unmatched)))))
+
+(defun company-tailwindcss--fix-multiline-js-string ()
+  (when (eq 'web-mode-javascript-string-face (get-text-property (point) 'font-lock-face))
+    (company-tailwindcss-convert-to-multiline-js-string-at-point)))
 
 
 (provide 'company-tailwindcss)
